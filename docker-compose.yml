@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  turing-smart-screen:
+    image: ghcr.io/ferni7/turing-smart-screen-custom:latest
+    container_name: turing-smart-screen
+    restart: unless-stopped
+    devices:
+      - /dev/ttyACM0:/dev/ttyACM0
+    volumes:
+      - /dev:/dev
+    environment:
+      - TZ=Australia/Melbourne
+      - OPNS_API_KEY=yyyyy
+      - OPNS_API_SECRET=xxxx
+      - OPNS_IP_ADDR=192.168.1.1
+      - PROM_SERVER_URL=http://x.x.x.x:9090
+    entrypoint: ["python3", "app.py"]
