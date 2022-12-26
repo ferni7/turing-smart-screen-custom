@@ -1,0 +1,5 @@
+Pillow~=9.2.0     # Image generation
+pyserial~=3.5     # Serial linl to communicate with the display
+
+prometheus_api_client
+bitmath
