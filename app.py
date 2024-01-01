@@ -40,6 +40,17 @@ def get_prom_metric(metricname, label):
   else:
     print(response.status_code + ": " + response.reason)
 
+def get_prom_metric_from_query(query):
+  response = requests.get(f"{PROM_SERVER_URL}/api/v1/query?query={query}")
+  if response.status_code==200:
+    if len(response.json()['data']['result'])==1:
+      metric = response.json()['data']['result'][0]['value'][1]
+    else:
+      metric="ERR"
+    return(metric)
+  else:
+    print(response.status_code + ": " + response.reason)
+
 # Initialise some global variables for the network_speed() function
 global old_downloaded_bytes
 old_downloaded_bytes = 0
@@ -205,8 +216,6 @@ if __name__ == "__main__":
                          font_color=(255, 255, 255),
                          background_color=(0, 0, 0))
 
-
-    
     lcd_comm.DisplayText("Power", 240, 10,
                          font="roboto/Roboto-Bold.ttf",
                          font_size=30,
@@ -219,7 +228,7 @@ if __name__ == "__main__":
                          font_color=(255, 255, 255),
                          background_color=(0, 0, 0))
 
-    lcd_comm.DisplayText("Fridge:", 240, 85,
+    lcd_comm.DisplayText("K PC:", 240, 85,
                          font,
                          font_size=25,
                          font_color=(255, 255, 255),
@@ -243,15 +252,14 @@ if __name__ == "__main__":
                          font_color=(255, 255, 255),
                          background_color=(0, 0, 0))
 
-    lcd_comm.DisplayText("K PC:", 240, 225,
-                         font,
-                         font_size=25,
-                         font_color=(255, 255, 255),
-                         background_color=(0, 0, 0))
+    #lcd_comm.DisplayText("Solar:", 240, 225,
+    #                     font,
+    #                     font_size=25,
+    #                     font_color=(255, 255, 255),
+    #                     background_color=(0, 0, 0))
 
 
     # Display the current time and some progress bars as fast as possible
-    bar_value = 0
     while not stop:
         lcd_comm.DisplayText(get_prom_metric("thermometer_temperature_celsius","room='Office'") + "º", 150, 50,
                             font=font,
@@ -295,61 +303,64 @@ if __name__ == "__main__":
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
-
-
-
         computer_watts=get_prom_metric("tasmota_energy_power_active_watts","job='Computer'") + "W"
-        lcd_comm.DisplayText(f'{computer_watts:>5}', 390, 50,
+        lcd_comm.DisplayText(f'{computer_watts:>5}', 405, 50,
                             font,
                             font_size=25,
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
-        fridge_watts=get_prom_metric("tasmota_energy_power_active_watts","job='Fridge'") + "W"
-        lcd_comm.DisplayText(f'{fridge_watts:>5}', 390, 85,
+        k_computer_watts=get_prom_metric("tasmota_energy_power_active_watts","job='K Computer'") + "W"
+        lcd_comm.DisplayText(f'{k_computer_watts:>5}', 405, 85,
                             font,
                             font_size=25,
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
         
         garage_fridge_watts=get_prom_metric("tasmota_energy_power_active_watts","job='Garage Fridge'") + "W"
-        lcd_comm.DisplayText(f'{garage_fridge_watts:>5}', 390, 120,
+        lcd_comm.DisplayText(f'{garage_fridge_watts:>5}', 405, 120,
                             font,
                             font_size=25,
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
         chia_watts=get_prom_metric("tasmota_energy_power_active_watts","job='Chia'") + "W"
-        lcd_comm.DisplayText(f'{chia_watts:>5}', 390, 155,
+        lcd_comm.DisplayText(f'{chia_watts:>5}', 405, 155,
                             font,
                             font_size=25,
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
         tv_watts=get_prom_metric("tasmota_energy_power_active_watts","job='TV'") + "W"
-        lcd_comm.DisplayText(f'{tv_watts:>5}', 390, 190,
+        lcd_comm.DisplayText(f'{tv_watts:>5}', 405, 190,
                             font,
                             font_size=25,
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
-        k_computer=get_prom_metric("tasmota_energy_power_active_watts","job='K Computer'") + "W"
-        lcd_comm.DisplayText(f'{k_computer:>5}', 390, 225,
+        current_solar_power=round(float(get_prom_metric_from_query("AC_Power*(10^AC_Power_SF)/1000")),1)
+        lcd_comm.DisplayProgressBar(240, 225,
+                                    width=140, height=30,
+                                    min_value=0, max_value=5, value=current_solar_power,
+                                    bar_color=(80,200,120), bar_outline=True,
+                                    background_color=(0, 0, 0))
+        
+        lcd_comm.DisplayText(f'{current_solar_power:>4}kW', 390, 225,
                             font,
                             font_size=25,
-                            font_color=(255, 255, 255),
+                            font_color=(80,200,120),
                             background_color=(0, 0, 0))
 
         speed = network_speed()
         lcd_comm.DisplayText(f'DL: {speed[0]:>12}', 240, 260,
                             font,
                             font_size=25,
-                            font_color=(212, 212, 212),
+                            font_color=(113, 163, 245),
                             background_color=(0, 0, 0))
         lcd_comm.DisplayText(f'UL: {speed[1]:>12}', 240, 290,
                             font,
                             font_size=25,
-                            font_color=(212, 212, 212),
+                            font_color=(113, 163, 245),
                             background_color=(0, 0, 0))
 
         time.sleep(5)
