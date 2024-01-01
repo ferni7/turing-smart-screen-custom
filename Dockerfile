@@ -6,8 +6,12 @@ COPY . .
 
 RUN python3 -m pip install -r requirements.txt
 
-RUN usermod -a -G dialout nobody
+#RUN chmod -R +r *
 
-USER nobody
+RUN apt-get update && apt-get install nano -y
+
+#RUN usermod -a -G dialout nobody
+
+#USER nobody
 
 ENTRYPOINT ["python3", "app.py"]
