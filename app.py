@@ -234,7 +234,7 @@ if __name__ == "__main__":
                          font_color=(255, 255, 255),
                          background_color=(0, 0, 0))
     
-    lcd_comm.DisplayText("G Fridge:", 240, 120,
+    lcd_comm.DisplayText("TV:", 240, 120,
                          font,
                          font_size=25,
                          font_color=(255, 255, 255),
@@ -246,10 +246,10 @@ if __name__ == "__main__":
                          font_color=(255, 255, 255),
                          background_color=(0, 0, 0))
     
-    lcd_comm.DisplayText("TV:", 240, 190,
+    lcd_comm.DisplayText("Grid:", 240, 190,
                          font,
                          font_size=25,
-                         font_color=(255, 255, 255),
+                         font_color=(255, 0, 0),
                          background_color=(0, 0, 0))
 
     #lcd_comm.DisplayText("Solar:", 240, 225,
@@ -317,8 +317,8 @@ if __name__ == "__main__":
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
         
-        garage_fridge_watts=get_prom_metric("tasmota_energy_power_active_watts","job='Garage Fridge'") + "W"
-        lcd_comm.DisplayText(f'{garage_fridge_watts:>5}', 405, 120,
+        tv_watts=get_prom_metric("tasmota_energy_power_active_watts","job='TV'") + "W"
+        lcd_comm.DisplayText(f'{tv_watts:>5}', 405, 120,
                             font,
                             font_size=25,
                             font_color=(255, 255, 255),
@@ -331,11 +331,11 @@ if __name__ == "__main__":
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
-        tv_watts=get_prom_metric("tasmota_energy_power_active_watts","job='TV'") + "W"
-        lcd_comm.DisplayText(f'{tv_watts:>5}', 405, 190,
+        purchased_energy=round(float(get_prom_metric_from_query("solaredge_api_purchased_energy/1000")),1)
+        lcd_comm.DisplayText(f'{purchased_energy:>5}kW', 375, 190,
                             font,
                             font_size=25,
-                            font_color=(255, 255, 255),
+                            font_color=(255, 0, 0),
                             background_color=(0, 0, 0))
 
         current_solar_power=round(float(get_prom_metric_from_query("AC_Power*(10^AC_Power_SF)/1000")),1)
