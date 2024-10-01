@@ -331,7 +331,12 @@ if __name__ == "__main__":
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
-        purchased_energy=round(float(get_prom_metric_from_query("solaredge_api_purchased_energy/1000")),1)
+        #purchased_energy=round(float(get_prom_metric_from_query("solaredge_api_purchased_energy/1000")),1)
+        value = get_prom_metric_from_query("solaredge_api_purchased_energy/1000")
+        try:
+            purchased_energy = round(float(value), 1)
+        except ValueError:
+            purchased_energy = 0  # or handle the error appropriately
         lcd_comm.DisplayText(f'{purchased_energy:>5}kW', 375, 190,
                             font,
                             font_size=25,
