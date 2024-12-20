@@ -7,6 +7,7 @@ import signal
 import sys
 import time
 import bitmath
+from datetime import datetime
 
 # Import only the modules for LCD communication
 from library.lcd_comm_rev_a import LcdCommRevA, Orientation
@@ -17,12 +18,6 @@ from library.log import logger
 import requests
 from requests.packages import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-
-# Get environment variables for Opnsense API - used for Internet Upload/Download speed
-OPNS_API_KEY = os.getenv('OPNS_API_KEY')
-OPNS_API_SECRET = os.environ.get('OPNS_API_SECRET')
-OPNS_IP_ADDR = os.environ.get('OPNS_IP_ADDR')
-OPNS_URL = "https://" + OPNS_IP_ADDR + "/api/diagnostics/traffic/interface"
 
 # Get Prom Server URL from env variable
 PROM_SERVER_URL=os.environ.get('PROM_SERVER_URL')
@@ -46,51 +41,11 @@ def get_prom_metric_from_query(query):
     if len(response.json()['data']['result'])==1:
       metric = response.json()['data']['result'][0]['value'][1]
     else:
+      print(f"Error with get_prom_metric_from_query: {metric}")
       metric="ERR"
     return(metric)
   else:
     print(response.status_code + ": " + response.reason)
-
-# Initialise some global variables for the network_speed() function
-global old_downloaded_bytes
-old_downloaded_bytes = 0
-global old_uploaded_bytes
-old_uploaded_bytes = 0
-global last_time
-last_time = time.time_ns()
-
-def network_speed():
-    global old_downloaded_bytes
-    global old_uploaded_bytes
-    global last_time
-
-    r = requests.get(OPNS_URL,verify=False, auth=(OPNS_API_KEY, OPNS_API_SECRET))
-    if r.status_code == 200:
-        # For each call calculate the time difference from when it was last called, needed to calculate per second speed
-        now_time = time.time_ns()
-        delta_time = now_time - last_time
-        last_time = now_time
-
-        # Get the number of bytes the wan interface as uploaded/downloaded
-        new_downloaded_bytes = r.json()['interfaces']['wan']['bytes received']
-        new_uploaded_bytes = r.json()['interfaces']['wan']['bytes transmitted']
-
-        # Calculate how many bytes have been uploaded/downloaded since last time this function was called
-        delta_downloaded_bytes=int(new_downloaded_bytes)-old_downloaded_bytes
-        delta_uploaded_bytes=int(new_uploaded_bytes)-old_uploaded_bytes
-
-        # Update the old uploaded/downloaded byte values for next time this is called
-        old_downloaded_bytes=int(new_downloaded_bytes)
-        old_uploaded_bytes=int(new_uploaded_bytes)
-
-        # Calculate the download and upload speed by dividing the delta bytes by time since last call
-        download_speed=bitmath.Byte(delta_downloaded_bytes/(delta_time/1000000000))
-        upload_speed=bitmath.Byte(delta_uploaded_bytes/(delta_time/1000000000))
-
-        # return a list with the download and upload speeds
-        return(download_speed.Mib.format("{value:.1f} {unit}/s"), upload_speed.Mib.format("{value:.1f} {unit}/s"))
-    else:
-        return(r.status_code + ": " + r.reason)
 
 # Set your COM port e.g. COM3 for Windows, /dev/ttyACM0 for Linux, etc. or "AUTO" for auto-discovery
 # COM_PORT = "/dev/ttyACM0"
@@ -332,10 +287,12 @@ if __name__ == "__main__":
                             background_color=(0, 0, 0))
 
         #purchased_energy=round(float(get_prom_metric_from_query("solaredge_api_purchased_energy/1000")),1)
-        value = get_prom_metric_from_query("solaredge_api_purchased_energy/1000")
+        today_date=datetime.today().strftime('%d %b')
+        value = get_prom_metric_from_query("solaredge_api_purchased_energy{date='" + today_date + "'}/1000")
         try:
             purchased_energy = round(float(value), 1)
         except ValueError:
+            print(purchased_energy)
             purchased_energy = 0  # or handle the error appropriately
         lcd_comm.DisplayText(f'{purchased_energy:>5}kW', 375, 190,
                             font,
@@ -356,13 +313,20 @@ if __name__ == "__main__":
                             font_color=(80,200,120),
                             background_color=(0, 0, 0))
 
-        speed = network_speed()
-        lcd_comm.DisplayText(f'DL: {speed[0]:>12}', 240, 260,
+        speed_dl_bytes=int(get_prom_metric_from_query("unpoller_site_receive_rate_bytes{subsystem='wan'}"))
+        #print(speed_dl_bytes)
+        speed_dl = bitmath.Byte(speed_dl_bytes).Mib.format("{value:.1f} {unit}/s")
+
+        lcd_comm.DisplayText(f'DL: {speed_dl:>12}', 240, 260,
                             font,
                             font_size=25,
                             font_color=(113, 163, 245),
                             background_color=(0, 0, 0))
-        lcd_comm.DisplayText(f'UL: {speed[1]:>12}', 240, 290,
+
+        speed_ul_bytes=int(get_prom_metric_from_query("unpoller_site_transmit_rate_bytes{subsystem='wan'}"))
+        #print(speed_ul_bytes)
+        speed_ul = bitmath.Byte(speed_ul_bytes).Mib.format("{value:.1f} {unit}/s")
+        lcd_comm.DisplayText(f'UL: {speed_ul:>12}', 240, 290,
                             font,
                             font_size=25,
                             font_color=(113, 163, 245),
