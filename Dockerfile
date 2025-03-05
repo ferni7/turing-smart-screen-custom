@@ -4,7 +4,7 @@ WORKDIR /app
 
 COPY . .
 
-RUN python3 -m pip install -r requirements.txt
+RUN python3 -m pip install -r requirements.txt --no-cache-dir
 
 #RUN chmod -R +r *
 

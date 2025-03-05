@@ -23,29 +23,41 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 PROM_SERVER_URL=os.environ.get('PROM_SERVER_URL')
 
 def get_prom_metric(metricname, label):
-  query = "last_over_time(" + metricname + "{" + label + "}[1h])"
-  response = requests.get(f"{PROM_SERVER_URL}/api/v1/query?query={query}")
-  if response.status_code==200:
-    if len(response.json()['data']['result'])==1:
-      metric = response.json()['data']['result'][0]['value'][1]
-      metric = str(round(float(metric)))
+    query = "last_over_time(" + metricname + "{" + label + "}[1h])"
+    response = requests.get(f"{PROM_SERVER_URL}/api/v1/query?query={query}")
+    if response.status_code == 200:
+        data = response.json().get('data', {}).get('result', [])
+        if len(data) == 1:
+            try:
+                metric = data[0]['value'][1]
+                return str(round(float(metric)))
+            except (ValueError, TypeError):
+                logger.error(f"Error converting metric value to float: {data[0]['value'][1]}")
+                return 'ERR'
+        else:
+            logger.error(f"No data found for metric: {metricname} with label: {label}")
+            return 'ERR'
     else:
-      metric="ERR"
-    return(metric)
-  else:
-    print(response.status_code + ": " + response.reason)
+        logger.error(f"Failed to retrieve metric: {metricname} with label: {label}, status code: {response.status_code}")
+        return 'ERR'
 
 def get_prom_metric_from_query(query):
-  response = requests.get(f"{PROM_SERVER_URL}/api/v1/query?query={query}")
-  if response.status_code==200:
-    if len(response.json()['data']['result'])==1:
-      metric = response.json()['data']['result'][0]['value'][1]
+    response = requests.get(f"{PROM_SERVER_URL}/api/v1/query?query={query}")
+    if response.status_code == 200:
+        data = response.json().get('data', {}).get('result', [])
+        if len(data) == 1:
+            try:
+                metric = data[0]['value'][1]
+                return str(float(metric))
+            except (ValueError, TypeError):
+                logger.error(f"Error converting metric value to float: {data[0]['value'][1]}")
+                return 'ERR'
+        else:
+            logger.error(f"No data found for query: {query}")
+            return 'ERR'
     else:
-      print(f"Error with get_prom_metric_from_query: {metric}")
-      metric="ERR"
-    return(metric)
-  else:
-    print(response.status_code + ": " + response.reason)
+        logger.error(f"Failed to retrieve data for query: {query}, status code: {response.status_code}")
+        return 'ERR'
 
 # Set your COM port e.g. COM3 for Windows, /dev/ttyACM0 for Linux, etc. or "AUTO" for auto-discovery
 # COM_PORT = "/dev/ttyACM0"
@@ -106,19 +118,8 @@ if __name__ == "__main__":
     # Set backplate RGB LED color (for supported HW only)
     #lcd_comm.SetBackplateLedColor(led_color=(255, 255, 255))
 
-    # Set orientation (screen starts in Portrait)
-    orientation = Orientation.LANDSCAPE
-    lcd_comm.SetOrientation(orientation=orientation)
-
-    # Define background picture
-    if orientation == Orientation.PORTRAIT or orientation == orientation.REVERSE_PORTRAIT:
-        background = "black_portrait.png"
-    else:
-#        background = "res/backgrounds/example_landscape.png"
-        background = "black_landscape.png"
-
-    # Display background picture
-    #lcd_comm.DisplayBitmap(background)
+    # Set orientation (screen starts in Portrait) 
+    lcd_comm.SetOrientation(orientation=Orientation.REVERSE_LANDSCAPE)
 
     font = "roboto-mono/RobotoMono-Medium.ttf"
 
@@ -195,7 +196,7 @@ if __name__ == "__main__":
                          font_color=(255, 255, 255),
                          background_color=(0, 0, 0))
     
-    lcd_comm.DisplayText("Chia:", 240, 155,
+    lcd_comm.DisplayText("W/Fridge:", 240, 155,
                          font,
                          font_size=25,
                          font_color=(255, 255, 255),
@@ -279,8 +280,9 @@ if __name__ == "__main__":
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
-        chia_watts=get_prom_metric("tasmota_energy_power_active_watts","job='Chia'") + "W"
-        lcd_comm.DisplayText(f'{chia_watts:>5}', 405, 155,
+        wine_fridge_watts = get_prom_metric("tasmota_energy_power_active_watts","job='Wine Fridge'") + "W"
+        #chia_watts=get_prom_metric("tasmota_energy_power_active_watts","job='Chia'") + "W"
+        lcd_comm.DisplayText(f'{wine_fridge_watts:>5}', 405, 155,
                             font,
                             font_size=25,
                             font_color=(255, 255, 255),
@@ -288,7 +290,7 @@ if __name__ == "__main__":
 
         #purchased_energy=round(float(get_prom_metric_from_query("solaredge_api_purchased_energy/1000")),1)
         today_date=datetime.today().strftime('%d %b')
-        value = get_prom_metric_from_query("solaredge_api_purchased_energy{date='" + today_date + "'}/1000")
+        value = round(float(get_prom_metric_from_query("solaredge_api_purchased_energy{date='" + today_date + "'}/1000")),1)
         try:
             purchased_energy = round(float(value), 1)
         except ValueError:
@@ -313,9 +315,17 @@ if __name__ == "__main__":
                             font_color=(80,200,120),
                             background_color=(0, 0, 0))
 
-        speed_dl_bytes=int(get_prom_metric_from_query("unpoller_site_receive_rate_bytes{subsystem='wan'}"))
-        #print(speed_dl_bytes)
-        speed_dl = bitmath.Byte(speed_dl_bytes).Mib.format("{value:.1f} {unit}/s")
+        try:
+            speed_dl_bytes = float(get_prom_metric_from_query("unpoller_site_receive_rate_bytes{subsystem='wan'}"))
+        except ValueError:
+            speed_dl_bytes = 0  # Default value or handle the error as needed
+            logger.error("Failed to convert metric to int, setting speed_dl_bytes to 0")
+
+        try:
+            speed_dl = bitmath.Byte(speed_dl_bytes).Mib.format("{value:.1f} {unit}/s")
+        except ValueError:
+            print(f"Debug Speed DL Bytes:{speed_dl_bytes}")
+            speed_dl = "ERR"
 
         lcd_comm.DisplayText(f'DL: {speed_dl:>12}', 240, 260,
                             font,
@@ -323,9 +333,18 @@ if __name__ == "__main__":
                             font_color=(113, 163, 245),
                             background_color=(0, 0, 0))
 
-        speed_ul_bytes=int(get_prom_metric_from_query("unpoller_site_transmit_rate_bytes{subsystem='wan'}"))
-        #print(speed_ul_bytes)
-        speed_ul = bitmath.Byte(speed_ul_bytes).Mib.format("{value:.1f} {unit}/s")
+        try:
+            speed_ul_bytes=float(get_prom_metric_from_query("unpoller_site_transmit_rate_bytes{subsystem='wan'}"))
+        except ValueError:
+            speed_ul_bytes = 0  # Default value or handle the error as needed
+            logger.error("Failed to convert metric to int, setting speed_ul_bytes to 0")
+
+        try:
+          speed_ul = bitmath.Byte(speed_ul_bytes).Mib.format("{value:.1f} {unit}/s")
+        except ValueError:
+          print(f"Debug Speed UL Bytes:{speed_ul_bytes}")
+          speed_ul = "ERR"
+
         lcd_comm.DisplayText(f'UL: {speed_ul:>12}', 240, 290,
                             font,
                             font_size=25,
