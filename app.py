@@ -288,9 +288,9 @@ if __name__ == "__main__":
                             font_color=(255, 255, 255),
                             background_color=(0, 0, 0))
 
-        #purchased_energy=round(float(get_prom_metric_from_query("solaredge_api_purchased_energy/1000")),1)
+        #purchased_energy=round(float(get_prom_metric_from_query("solaredge_api_purchased_energy/1000")),1) 
         today_date=datetime.today().strftime('%d %b')
-        value = round(float(get_prom_metric_from_query("solaredge_api_purchased_energy{date='" + today_date + "'}/1000")),1)
+        value = round(float(get_prom_metric_from_query("last_over_time(solaredge_api_purchased_energy{date='" + today_date + "'}[120m])/1000")),1)
         try:
             purchased_energy = round(float(value), 1)
         except ValueError:
